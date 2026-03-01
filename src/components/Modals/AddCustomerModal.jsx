@@ -1,113 +1,137 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import React, { useState, useEffect } from 'react';
 
-export default function AddCustomerModal({ isOpen, onClose, onSuccess, editCustomer = null, defaultDay = 'Mon' }) {
-  const [formData, setFormData] = useState({
-    name: '', mobile: '', route_day: defaultDay, sr_no: ''
-  })
-  const [loading, setLoading] = useState(false)
+export default function AddCustomerModal({ isOpen, onClose, customer, defaultDay, api }) {
+  const [name, setName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [srNo, setSrNo] = useState('');
+  const [selectedDay, setSelectedDay] = useState(defaultDay || 'Mon');
+  const [loading, setLoading] = useState(false);
 
-  const days = [
-    { val: 'Mon', label: 'Monday' }, { val: 'Tue', label: 'Tuesday' },
-    { val: 'Wed', label: 'Wednesday' }, { val: 'Thu', label: 'Thursday' },
-    { val: 'Fri', label: 'Friday' }, { val: 'Sat', label: 'Saturday' },
-    { val: 'Sun', label: 'Sunday' }
-  ]
-
-  // FIX 4: Update form when modal opens OR when defaultDay changes
   useEffect(() => {
-    if (editCustomer) {
-      setFormData({
-        name: editCustomer.name,
-        mobile: editCustomer.mobile || '',
-        route_day: editCustomer.route_day,
-        sr_no: editCustomer.sr_no
-      })
-    } else {
-      // Use the defaultDay passed from Dashboard (e.g. 'Tue')
-      setFormData({ name: '', mobile: '', route_day: defaultDay, sr_no: '' })
+    if (isOpen) {
+      if (customer) {
+        setName(customer.name);
+        setMobile(customer.mobile || '');
+        setSrNo(customer.sr_no?.toString() || '');
+        setSelectedDay(customer.route_day);
+      } else {
+        setName('');
+        setMobile('');
+        setSrNo('');
+        setSelectedDay(defaultDay);
+      }
     }
-  }, [editCustomer, isOpen, defaultDay])
-
-  if (!isOpen) return null
+  }, [isOpen, customer, defaultDay]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    
-    const payload = {
-      name: formData.name,
-      mobile: formData.mobile,
-      route_day: formData.route_day,
-      sr_no: parseInt(formData.sr_no) || 0
-    }
+    e.preventDefault();
+    if (!name.trim()) return alert('Name is required');
 
-    let error
-    if (editCustomer) {
-      const { error: updateError } = await supabase.from('customers').update(payload).eq('id', editCustomer.id)
-      error = updateError
-    } else {
-      const { error: insertError } = await supabase.from('customers').insert([payload])
-      error = insertError
-    }
+    setLoading(true);
+    try {
+      const payload = {
+        name: name.trim(),
+        mobile: mobile.trim(),
+        route_day: selectedDay,
+        sr_no: srNo ? parseInt(srNo) : 1
+      };
 
-    setLoading(false)
-    if (error) {
-      alert(error.message)
-    } else {
-      onSuccess()
-      onClose()
+      if (customer) {
+        await api.updateCustomer(customer.id, payload);
+      } else {
+        await api.createCustomer(payload);
+      }
+      onClose();
+    } catch (err) {
+      alert('Error saving customer: ' + err.message);
     }
-  }
+    setLoading(false);
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete this customer and all their bills?')) {
+      setLoading(true);
+      await api.deleteCustomer(customer.id);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
-    <div className="modal" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <span className="close-btn" onClick={onClose}>&times;</span>
-        <h2>{editCustomer ? 'Edit Customer' : 'Add New Customer'}</h2>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">{customer ? 'Edit Customer' : 'New Customer'}</div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
         <form onSubmit={handleSubmit}>
-          <label>Route Day</label>
-          <select 
-            className="input-field" 
-            value={formData.route_day}
-            onChange={e => setFormData({...formData, route_day: e.target.value})}
-          >
-            {days.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
-          </select>
-          
-          <label>Serial No.</label>
-          <input 
-            type="number" 
-            className="input-field"
-            value={formData.sr_no}
-            onChange={e => setFormData({...formData, sr_no: e.target.value})}
-            placeholder="Auto"
-          />
-          
-          <label>Name</label>
-          <input 
-            type="text" 
-            className="input-field"
-            value={formData.name}
-            onChange={e => setFormData({...formData, name: e.target.value})}
-            placeholder="Customer Name"
-            required
-          />
-          
-          <label>Mobile (Optional)</label>
-          <input 
-            type="tel" 
-            className="input-field"
-            value={formData.mobile}
-            onChange={e => setFormData({...formData, mobile: e.target.value})}
-            placeholder="Mobile Number"
-          />
-          
-          <button type="submit" className="btn-save" disabled={loading}>
-            {loading ? 'Saving...' : (editCustomer ? 'Update' : 'Save Customer')}
-          </button>
+          <div className="field">
+            <label className="field-label">Route Day</label>
+            <div className="day-picker">
+              {days.map(d => (
+                <button
+                  type="button"
+                  key={d}
+                  className={`day-option ${selectedDay === d ? 'active' : ''}`}
+                  onClick={() => setSelectedDay(d)}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-12">
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field-label">Shop Name</label>
+              <input
+                autoFocus
+                type="text"
+                className="field-input"
+                placeholder="e.g. Laxmi Store"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ width: 90 }}>
+              <label className="field-label">Sr No.</label>
+              <input
+                type="number"
+                className="field-input"
+                placeholder="1"
+                value={srNo}
+                onChange={e => setSrNo(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label className="field-label">Mobile Number (Optional)</label>
+            <input
+              type="tel"
+              className="field-input"
+              placeholder="9876543210"
+              maxLength={10}
+              value={mobile}
+              onChange={e => setMobile(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-12 mt-16">
+            {customer && (
+              <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading}>
+                Delete
+              </button>
+            )}
+            <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '14px' }} disabled={loading}>
+              {loading ? 'Saving...' : (customer ? 'Update Customer' : 'Add Customer')}
+            </button>
+          </div>
         </form>
       </div>
     </div>
-  )
+  );
 }

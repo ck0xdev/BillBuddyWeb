@@ -1,60 +1,142 @@
-import { useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import React, { useState, useEffect } from 'react';
 
-export default function PaymentModal({ isOpen, onClose, onSuccess, customer }) {
-  const [amount, setAmount] = useState('')
-  const [loading, setLoading] = useState(false)
+export default function PaymentModal({ isOpen, onClose, customer, pending, bill, api }) {
+  const [total, setTotal] = useState('');
+  const [paid, setPaid] = useState('');
+  const [billNo, setBillNo] = useState('');
+  const [date, setDate] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  if (!isOpen || !customer) return null
+  useEffect(() => {
+    if (isOpen) {
+      if (bill) {
+        setTotal(bill.total_amount?.toString() || '');
+        setPaid(bill.paid_amount?.toString() || '');
+        setBillNo(bill.bill_no?.toString() || '');
+        setDate(bill.date || new Date().toISOString().split('T')[0]);
+      } else {
+        setTotal('');
+        setPaid('');
+        setBillNo('');
+        setDate(new Date().toISOString().split('T')[0]);
+      }
+    }
+  }, [isOpen, bill]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    
-    // Create a "Credit" entry (Total 0, Paid Amount)
-    const { error } = await supabase.from('bills').insert([{
-      customer_id: customer.id,
-      bill_no: 'PAY', // Special tag for payments
-      date: new Date().toISOString().split('T')[0], // Always today's date for record keeping
-      total_amount: 0,
-      paid_amount: parseFloat(amount)
-    }])
+    e.preventDefault();
+    if (!total || !billNo) return alert('Bill Number and Total Amount are required');
 
-    setLoading(false)
-    
-    if (error) {
-      alert(error.message)
-    } else {
-      setAmount('')
-      onSuccess()
-      onClose()
+    const t = parseFloat(total);
+    const p = parseFloat(paid || 0);
+
+    if (t < p) return alert('Paid amount cannot exceed total amount');
+
+    setLoading(true);
+    try {
+      if (bill) {
+        const oldTotal = parseFloat(bill.total_amount) || 0;
+        const oldPaid = parseFloat(bill.paid_amount) || 0;
+        await api.updateBill(bill.id, {
+          bill_no: billNo,
+          date: date,
+          total_amount: t,
+          paid_amount: p
+        }, oldTotal, oldPaid, customer.id);
+      } else {
+        await api.createBill({
+          customer_id: customer.id,
+          customer_name: customer.name,
+          bill_no: billNo,
+          date: date,
+          total_amount: t,
+          paid_amount: p
+        });
+      }
+      onClose();
+    } catch (err) {
+      alert('Error saving bill: ' + err.message);
     }
-  }
+    setLoading(false);
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete this bill? This cannot be undone.')) {
+      setLoading(true);
+      try {
+        await api.deleteBill(bill.id, bill, customer.id);
+        onClose();
+      } catch (err) {
+        alert('Error deleting bill: ' + err.message);
+      }
+      setLoading(false);
+    }
+  };
+
+  const balance = (parseFloat(total) || 0) - (parseFloat(paid) || 0);
+
+  if (!isOpen || !customer) return null;
 
   return (
-    <div className="modal" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <span className="close-btn" onClick={onClose}>&times;</span>
-        <h2 style={{color: '#28a745'}}>Receive Payment</h2>
-        <p style={{marginBottom: 20}}>From: <strong>{customer.name}</strong></p>
-        
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <div className="modal-title">{bill ? 'Edit Bill' : 'New Bill / Payment'}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>For {customer.name}</div>
+          </div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        {!bill && pending > 0 && (
+          <div className="balance-box" style={{ background: '#FEF2F2', borderColor: '#FCA5A5', marginBottom: 20 }}>
+            <div className="balance-label" style={{ color: 'var(--danger)' }}>Previous Due</div>
+            <div className="balance-value due">₹{pending.toLocaleString()}</div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
-          <label>Amount Received (₹):</label>
-          <input 
-            type="number" 
-            className="input-field"
-            placeholder="e.g. 500"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            autoFocus
-            required
-          />
-          
-          <button type="submit" className="btn-save" style={{background: '#28a745'}} disabled={loading}>
-            {loading ? 'Saving...' : 'Confirm Payment'}
-          </button>
+          <div className="flex gap-12">
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field-label">Date</label>
+              <input type="date" className="field-input" value={date} onChange={e => setDate(e.target.value)} required />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field-label">Bill Number</label>
+              <input type="number" className="field-input" value={billNo} onChange={e => setBillNo(e.target.value)} placeholder="e.g 1045" required />
+            </div>
+          </div>
+
+          <div className="flex gap-12">
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field-label">Bill Total (₹)</label>
+              <input autoFocus={!bill} type="number" className="field-input" value={total} onChange={e => setTotal(e.target.value)} placeholder="0" required />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field-label">Amount Paid (₹)</label>
+              <input type="number" className="field-input" value={paid} onChange={e => setPaid(e.target.value)} placeholder="0" />
+            </div>
+          </div>
+
+          <div className="balance-box mt-8">
+            <div className="balance-label">Current Bill Balance</div>
+            <div className={`balance-value ${balance > 0 ? 'due' : 'clear'}`}>
+              ₹{balance.toLocaleString()}
+            </div>
+          </div>
+
+          <div className="flex gap-12 mt-16">
+            {bill && (
+              <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading}>
+                Delete
+              </button>
+            )}
+            <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '16px', fontSize: 16 }} disabled={loading}>
+              {loading ? 'Saving...' : (bill ? 'UPDATE BILL' : 'SAVE BILL')}
+            </button>
+          </div>
         </form>
       </div>
     </div>
-  )
+  );
 }

@@ -1,35 +1,32 @@
-import { useNavigate } from 'react-router-dom'
+import React from 'react';
 
-export default function CustomerCard({ customer, pending, onEdit }) {
-  const navigate = useNavigate()
-  
+export default function CustomerCard({ customer, pending, onEdit, onDetails }) {
   return (
-    <tr onClick={() => navigate(`/customer/${customer.id}`)} style={{ cursor: 'pointer' }}>
-      <td className="sr-col">{customer.sr_no}</td>
-      <td><strong>{customer.name}</strong></td>
-      <td>{customer.mobile || '-'}</td>
-      <td style={{ 
-        color: pending > 0 ? '#dc3545' : '#28a745', 
-        fontWeight: 'bold' 
-      }}>
-        ₹{pending.toLocaleString()}
-      </td>
-      <td style={{ display: 'flex', gap: '5px' }}>
-        {/* FIX 2: Edit Button added here */}
-        <button className="btn-view" style={{background: '#fff3cd', color:'#856404'}} onClick={(e) => {
-          e.stopPropagation()
-          onEdit(customer)
-        }}>
-          ✎
+    <div className="customer-card" onClick={onEdit}>
+      <div className="customer-avatar">
+        {customer.name.charAt(0).toUpperCase()}
+      </div>
+
+      <div className="customer-info">
+        <div className="customer-name">{customer.name}</div>
+        <div className="customer-meta">
+          <span className="customer-badge badge-neutral">#{customer.sr_no}</span>
+          <span>{customer.mobile || 'No Mobile'}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-12">
+        <div className={`customer-pending ${pending <= 0 ? 'paid' : ''}`}>
+          ₹{pending.toLocaleString()}
+        </div>
+
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={(e) => { e.stopPropagation(); onDetails(); }}
+        >
+          Details
         </button>
-        
-        <button className="btn-view" onClick={(e) => {
-          e.stopPropagation()
-          navigate(`/customer/${customer.id}`)
-        }}>
-          View
-        </button>
-      </td>
-    </tr>
-  )
+      </div>
+    </div>
+  );
 }

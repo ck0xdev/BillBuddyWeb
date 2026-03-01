@@ -1,86 +1,61 @@
-import { useState } from 'react'
+import React, { useState } from 'react';
+import { useAuth } from '../lib/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-export default function Login({ onLogin }) {
-  const [id, setId] = useState('')
-  const [pass, setPass] = useState('')
-  const [error, setError] = useState('')
-
-  // --- YOUR SECRET CREDENTIALS ---
-  const COMMON_ID = "btkukadiya"
-  const COMMON_PASS = "Bhavesh_1980" 
-  // -------------------------------
+export default function Login() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogin = (e) => {
-    e.preventDefault()
-    if (id === COMMON_ID && pass === COMMON_PASS) {
-      onLogin() // Unlock the app
+    e.preventDefault();
+    if (login(username, password)) {
+      navigate('/');
     } else {
-      setError('Invalid Username or Password')
+      setError('Invalid username or password');
     }
-  }
+  };
 
   return (
-    <div style={{
-      height: '100vh',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '40px 30px',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '350px',
-        textAlign: 'center',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-      }}>
-        <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🔐</div>
-        <h2 style={{margin: '0 0 20px 0', color: '#333'}}>Bill Handler Pro</h2>
-        
-        {error && (
-          <div style={{
-            background: '#ffe3e6', color: '#dc3545', 
-            padding: '10px', borderRadius: '8px', 
-            fontSize:'0.9rem', marginBottom:'20px'
-          }}>
-            {error}
-          </div>
-        )}
-        
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg)', padding: 20 }}>
+      <div style={{ background: 'white', padding: 30, borderRadius: 20, width: '100%', maxWidth: 400, boxShadow: 'var(--shadow-lg)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ width: 60, height: 60, background: 'var(--primary)', color: 'white', fontSize: 32, fontWeight: 900, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>B</div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>BillBuddy Workspace</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Please log in to continue</p>
+        </div>
+
+        {error && <div style={{ background: '#FEF2F2', color: 'var(--danger)', padding: 12, borderRadius: 8, fontSize: 13, textAlign: 'center', marginBottom: 20 }}>{error}</div>}
+
         <form onSubmit={handleLogin}>
-          <input 
-            type="text" 
-            placeholder="Username" 
-            value={id}
-            onChange={e => setId(e.target.value)}
-            style={{
-              width: '100%', padding: '14px', marginBottom: '15px',
-              border: '2px solid #eee', borderRadius: '10px', fontSize:'16px', outline: 'none'
-            }}
-          />
-          <input 
-            type="password" 
-            placeholder="Password" 
-            value={pass}
-            onChange={e => setPass(e.target.value)}
-            style={{
-              width: '100%', padding: '14px', marginBottom: '25px',
-              border: '2px solid #eee', borderRadius: '10px', fontSize:'16px', outline: 'none'
-            }}
-          />
-          <button type="submit" style={{
-            width: '100%', padding: '14px',
-            background: '#667eea', color: 'white', border: 'none',
-            borderRadius: '10px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer',
-            transition: 'transform 0.1s'
-          }}>
-            Login
+          <div className="field">
+            <label className="field-label">Username</label>
+            <input
+              type="text"
+              className="field-input"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <div className="field">
+            <label className="field-label">Password</label>
+            <input
+              type="password"
+              className="field-input"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          <button type="submit" className="btn btn-primary w-full mt-8" style={{ padding: '14px', fontSize: 15, justifyContent: 'center' }}>
+            Login securely
           </button>
         </form>
       </div>
     </div>
-  )
+  );
 }

@@ -1,211 +1,125 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
-import * as XLSX from 'xlsx'
-import Header from '../components/Header'
-import DayScroller from '../components/DayScroller'
-import Stats from '../components/Stats'
-import CustomerCard from '../components/CustomerCard'
-import AddCustomerModal from '../components/Modals/AddCustomerModal'
-import PaymentModal from '../components/Modals/PaymentModal'
-import HistoryModal from '../components/Modals/HistoryModal'
+import React, { useState } from 'react';
+import { useCollectionSync, generateUUID } from '../lib/hooks';
+import { createCustomer, updateCustomer, deleteCustomer, createBill } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
+import Header from '../components/Header';
+import DayScroller from '../components/DayScroller';
+import CustomerCard from '../components/CustomerCard';
+import AddCustomerModal from '../components/Modals/AddCustomerModal';
 
 export default function Dashboard() {
-  // Day Scroller State
-  const [currentDay, setCurrentDay] = useState(() => {
-    return localStorage.getItem('bill_handler_day') || 'Mon'
-  })
-  
-  // History Date State (Defaults to Today)
-  const [historyDate, setHistoryDate] = useState(new Date().toISOString().split('T')[0])
-  
-  const [customers, setCustomers] = useState([])
-  const [bills, setBills] = useState([])
-  
-  const [dailyTransactions, setDailyTransactions] = useState([])
-  const [showHistory, setShowHistory] = useState(false)
+  const navigate = useNavigate();
+  const [currentDay, setCurrentDay] = useState(() => localStorage.getItem('billbuddy_day') || 'Mon');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showModal, setShowModal] = useState(false)
-  const [showPayModal, setShowPayModal] = useState(false)
-  
-  const [loading, setLoading] = useState(true)
-  const [editingCustomer, setEditingCustomer] = useState(null)
-  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const { data: customers, loading: loadingCustomers } = useCollectionSync('customers', currentDay);
+  const { data: bills, loading: loadingBills } = useCollectionSync('bills', null); // Fetch all active bills to calculate pending
 
-  // 1. Effect for Route Data (Customers/Bills)
-  useEffect(() => {
-    localStorage.setItem('bill_handler_day', currentDay)
-    fetchRouteData()
-    
-    const sub = supabase.channel('public:data')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, fetchRouteData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, () => {
-        fetchRouteData()
-        fetchHistoryData() // Refresh history too if bills change
-      })
-      .subscribe()
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
 
-    return () => { sub.unsubscribe() }
-  }, [currentDay])
-
-  // 2. Effect for History Data (Updates when Date changes)
-  useEffect(() => {
-    fetchHistoryData()
-  }, [historyDate])
-
-  async function fetchRouteData() {
-    setLoading(true)
-    const { data: customersData } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('route_day', currentDay)
-      .order('sr_no', { ascending: true })
-    setCustomers(customersData || [])
-    
-    if (customersData && customersData.length > 0) {
-      const ids = customersData.map(c => c.id)
-      const { data: billsData } = await supabase.from('bills').select('*').in('customer_id', ids)
-      setBills(billsData || [])
-    } else {
-      setBills([])
-    }
-    setLoading(false)
-  }
-
-  // New Separate Function for History
-  async function fetchHistoryData() {
-    const { data } = await supabase
-      .from('bills')
-      .select('*, customers(name)')
-      .eq('date', historyDate) // Uses the selected history date
-      .gt('paid_amount', 0)
-    
-    setDailyTransactions(data || [])
-  }
+  // Sync day to local storage
+  React.useEffect(() => {
+    localStorage.setItem('billbuddy_day', currentDay);
+  }, [currentDay]);
 
   const getPendingAmount = (customerId) => {
     return bills
       .filter(b => b.customer_id === customerId)
-      .reduce((sum, b) => sum + (parseFloat(b.total_amount) - parseFloat(b.paid_amount)), 0)
-  }
+      .reduce((sum, b) => sum + (parseFloat(b.total_amount) - parseFloat(b.paid_amount)), 0);
+  };
 
-  const totalPending = customers.reduce((sum, c) => sum + getPendingAmount(c.id), 0)
-  
-  // Calculate Total for the *Selected History Date*
-  const totalCollected = dailyTransactions.reduce((sum, t) => sum + (t.paid_amount || 0), 0)
+  const totalPending = customers.reduce((sum, c) => sum + getPendingAmount(c.id), 0);
 
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const totalCollectedToday = bills
+    .filter(b => b.date === todayStr)
+    .reduce((sum, b) => sum + parseFloat(b.paid_amount || 0), 0);
+
+  const filteredCustomers = customers.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.mobile && c.mobile.includes(searchTerm))
-  )
+  );
 
-  const handleEditCustomer = (customer) => {
-    setEditingCustomer(customer)
-    setShowModal(true)
-  }
+  const handleEdit = (customer) => {
+    setEditingCustomer(customer);
+    setShowAddModal(true);
+  };
 
-  const handlePay = (customer) => {
-    setSelectedCustomer(customer)
-    setShowPayModal(true)
-  }
-
-  const handleAddNew = () => {
-    setEditingCustomer(null)
-    setShowModal(true)
-  }
-
-  const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(customers.map(c => ({
-      Serial: c.sr_no, Name: c.name, Mobile: c.mobile, Pending: getPendingAmount(c.id)
-    })))
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "Route")
-    XLSX.writeFile(wb, `Report_${currentDay}.xlsx`)
-  }
+  const handleDetails = (customer) => {
+    navigate(`/customer/${customer.id}`);
+  };
 
   return (
     <div>
-      <Header>
-        <button className="btn-small" onClick={() => setShowHistory(true)} style={{ background: '#28a745' }}>
-          💰 <span className="btn-text">Payment</span>
-        </button>
-        <button className="btn-small" onClick={exportToExcel} style={{ background: '#667eea' }}>
-          📊 <span className="btn-text">Export</span>
-        </button>
-        <button className="btn-small" onClick={() => window.location.reload()} style={{ background: '#333' }}>
-          🔄 <span className="btn-text">Refresh</span>
-        </button>
-      </Header>
-      
+      <Header />
+
       <DayScroller currentDay={currentDay} onDayChange={setCurrentDay} />
-      
-      <div className="search-container">
-        <input type="text" placeholder="🔍 Search Customer..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+
+      <div className="search-wrap">
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search Customer or Mobile..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      <div className="container" style={{ paddingBottom: 80 }}>
-        {/* Note: 'collected' here now shows the total for the SELECTED history date, usually today */}
-        <Stats count={filteredCustomers.length} pending={totalPending} collected={totalCollected} />
-        
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Loading...</div>
+      <div className="stats-bar">
+        <div className="stat-card">
+          <div className="stat-label">Shops</div>
+          <div className="stat-value primary">{filteredCustomers.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Total Due</div>
+          <div className="stat-value danger">₹{totalPending.toLocaleString()}</div>
+        </div>
+        <div className="stat-card" style={{ background: 'var(--success)', color: 'white', borderColor: 'var(--success)' }}>
+          <div className="stat-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Collected (Today)</div>
+          <div className="stat-value" style={{ color: 'white' }}>₹{totalCollectedToday.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div className="customer-list">
+        {loadingCustomers || loadingBills ? (
+          <div className="loading-page">
+            <div className="spinner"></div>
+            <div>Loading customers...</div>
+          </div>
         ) : filteredCustomers.length === 0 ? (
           <div className="empty-state">
-            <p>No customers found for {currentDay}.</p>
-            <button className="btn-small" onClick={handleAddNew} style={{ marginTop: 15 }}>
-              + Add Customer
+            <div className="empty-icon">🏪</div>
+            <div className="empty-title">No customers found</div>
+            <div className="empty-desc">There are no shops or customers registered for {currentDay}.</div>
+            <button className="btn btn-primary" onClick={() => { setEditingCustomer(null); setShowAddModal(true); }}>
+              Add First Customer
             </button>
           </div>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: 40 }}>Sr.</th>
-                <th>Name</th>
-                <th>Mobile</th>
-                <th style={{ width: 80 }}>Pending</th>
-                <th style={{ width: 100 }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCustomers.map(customer => (
-                <CustomerCard 
-                  key={customer.id} 
-                  customer={customer} 
-                  pending={getPendingAmount(customer.id)}
-                  onEdit={() => handleEditCustomer(customer)}
-                  onPay={() => handlePay(customer)}
-                />
-              ))}
-            </tbody>
-          </table>
+          filteredCustomers.map(customer => (
+            <CustomerCard
+              key={customer.id}
+              customer={customer}
+              pending={getPendingAmount(customer.id)}
+              onEdit={() => handleEdit(customer)}
+              onDetails={() => handleDetails(customer)}
+            />
+          ))
         )}
       </div>
 
-      <button className="fab-btn" onClick={handleAddNew}>+</button>
-      
-      <AddCustomerModal 
-        isOpen={showModal} 
-        onClose={() => setShowModal(false)} 
-        onSuccess={fetchRouteData} 
-        editCustomer={editingCustomer} 
-        defaultDay={currentDay}
-      />
-      
-      <PaymentModal 
-        isOpen={showPayModal}
-        onClose={() => setShowPayModal(false)}
-        onSuccess={() => { fetchRouteData(); fetchHistoryData(); }}
-        customer={selectedCustomer}
-      />
+      <button className="fab" onClick={() => { setEditingCustomer(null); setShowAddModal(true); }}>+</button>
 
-      <HistoryModal 
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-        transactions={dailyTransactions}
-        selectedDate={historyDate}
-        onDateChange={setHistoryDate}
-      />
+      {showAddModal && (
+        <AddCustomerModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          customer={editingCustomer}
+          defaultDay={currentDay}
+          api={{ createCustomer, updateCustomer, deleteCustomer }}
+        />
+      )}
     </div>
-  )
+  );
 }
