@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getLocalDateString } from '../../lib/dateUtils';
 
 export default function PaymentModal({ isOpen, onClose, customer, pending, bill, api }) {
   const [total, setTotal] = useState('');
@@ -14,14 +15,14 @@ export default function PaymentModal({ isOpen, onClose, customer, pending, bill,
         setTotal(bill.total_amount?.toString() || '');
         setPaid(bill.paid_amount?.toString() || '');
         setBillNo(bill.bill_no?.toString() || '');
-        setDate(bill.date || new Date().toISOString().split('T')[0]);
-        setPaidDate(bill.paid_date || bill.date || new Date().toISOString().split('T')[0]);
+        setDate(bill.date || getLocalDateString());
+        setPaidDate(bill.paid_date || bill.date || getLocalDateString());
       } else {
         setTotal('');
         setPaid('');
         setBillNo('');
-        setDate(new Date().toISOString().split('T')[0]);
-        setPaidDate(new Date().toISOString().split('T')[0]);
+        setDate(getLocalDateString());
+        setPaidDate(getLocalDateString());
       }
     }
   }, [isOpen, bill]);
@@ -33,6 +34,8 @@ export default function PaymentModal({ isOpen, onClose, customer, pending, bill,
     const t = parseFloat(total);
     const p = parseFloat(paid || 0);
 
+    if (isNaN(t) || t <= 0) return alert('Total Amount must be a valid positive number');
+    if (isNaN(p) || p < 0) return alert('Paid amount cannot be negative or invalid');
     if (t < p) return alert('Paid amount cannot exceed total amount');
 
     setLoading(true);

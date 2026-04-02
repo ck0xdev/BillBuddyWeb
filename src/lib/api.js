@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc, increment, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, increment, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { generateUUID } from './hooks';
 
+// --- CUSTOMER FUNCTIONS ---
 export const createCustomer = async (data) => {
     const id = generateUUID();
     await setDoc(doc(db, 'customers', id), {
@@ -36,6 +36,37 @@ export const deleteCustomer = async (customerId) => {
     await batch.commit();
 };
 
+export const importCustomers = async (customersList, existingCustomers = []) => {
+    const batch = writeBatch(db);
+    let addedCount = 0;
+
+    customersList.forEach(data => {
+        const existing = existingCustomers.find(c =>
+            c.name.trim().toLowerCase() === data.name.trim().toLowerCase() &&
+            (c.mobile || '').trim() === (data.mobile || '').trim()
+        );
+
+        if (!existing) {
+            const id = generateUUID();
+            batch.set(doc(db, 'customers', id), {
+                ...data,
+                pending: 0,
+                paid: 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                is_deleted: false,
+            });
+            addedCount++;
+        }
+    });
+
+    if (addedCount > 0) {
+        await batch.commit();
+    }
+    return addedCount;
+};
+
+// --- BILLING FUNCTIONS ---
 export const createBill = async (data) => {
     const id = generateUUID();
     await setDoc(doc(db, 'bills', id), {
@@ -89,35 +120,50 @@ export const deleteBill = async (billId, bill, customerId) => {
     await batch.commit();
 };
 
-export const importCustomers = async (customersList, existingCustomers = []) => {
-    // Note: Firestore limits batches to 500 operations. 
-    // Assuming imported lists are typically smaller, but using a simple batch for now.
-    const batch = writeBatch(db);
-    let addedCount = 0;
-
-    customersList.forEach(data => {
-        // Check for existing customer by Name and Mobile
-        const existing = existingCustomers.find(c =>
-            c.name.trim().toLowerCase() === data.name.trim().toLowerCase() &&
-            (c.mobile || '').trim() === (data.mobile || '').trim()
-        );
-
-        if (!existing) {
-            const id = generateUUID();
-            batch.set(doc(db, 'customers', id), {
-                ...data,
-                pending: 0,
-                paid: 0,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                is_deleted: false,
-            });
-            addedCount++;
-        }
+// --- ORDER FUNCTIONS ---
+export const createOrder = async (data) => {
+    const id = generateUUID();
+    await setDoc(doc(db, 'orders', id), {
+        ...data,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_deleted: false,
     });
+    return id;
+};
 
-    if (addedCount > 0) {
-        await batch.commit();
-    }
-    return addedCount;
+export const updateOrder = async (id, data) => {
+    await updateDoc(doc(db, 'orders', id), {
+        ...data,
+        updated_at: new Date().toISOString(),
+    });
+};
+
+export const markOrderDone = async (orderId) => {
+    await updateDoc(doc(db, 'orders', orderId), {
+        status: 'completed',
+        updated_at: new Date().toISOString(),
+    });
+};
+
+export const deleteOrder = async (orderId) => {
+    await updateDoc(doc(db, 'orders', orderId), { 
+        is_deleted: true, 
+        updated_at: new Date().toISOString() 
+    });
+};
+
+// --- PRODUCT FUNCTIONS ---
+export const addProduct = async (name) => {
+    const id = generateUUID();
+    await setDoc(doc(db, 'products', id), {
+        name,
+        created_at: new Date().toISOString()
+    });
+    return id;
+};
+
+export const deleteProduct = async (id) => {
+    await deleteDoc(doc(db, 'products', id));
 };

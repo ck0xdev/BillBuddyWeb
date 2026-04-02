@@ -622,3 +622,19 @@ body {
   .header-subtitle { display: none; }
   .customer-card { padding: 12px; }
 }
+/* src/index.css */
+.badge-pending { background: #FEF2F2; color: var(--danger); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+.badge-completed { background: #ECFDF5; color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+
+/* Status Badges */
+.badge-danger { background: #FEF2F2; color: var(--danger); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+.badge-success { background: #ECFDF5; color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+
+/* Management Header Styling */
+.detail-header {
+  background: var(--primary);
+  padding: 24px 16px;
+  color: white;
+}
+.detail-name { font-size: 22px; font-weight: 800; }
+.detail-sub { font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 4px; }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCollectionSync, generateUUID } from '../lib/hooks';
 import { createCustomer, updateCustomer, deleteCustomer, createBill } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
+import { getLocalDateString } from '../lib/dateUtils';
 import Header from '../components/Header';
 import DayScroller from '../components/DayScroller';
 import CustomerCard from '../components/CustomerCard';
@@ -31,7 +32,7 @@ export default function Dashboard() {
 
   const totalPending = customers.reduce((sum, c) => sum + getPendingAmount(c.id), 0);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const totalCollectedToday = bills
     .filter(b => b.date === todayStr)
     .reduce((sum, b) => sum + parseFloat(b.paid_amount || 0), 0);

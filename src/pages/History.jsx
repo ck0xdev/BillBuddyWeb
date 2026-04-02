@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCollectionSync } from '../lib/hooks';
+import { getLocalDateString } from '../lib/dateUtils';
 import Header from '../components/Header';
 
 export default function History() {
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(getLocalDateString());
     const { data: bills, loading } = useCollectionSync('bills', null);
 
-    // Filter bills for the chosen date that were billed today OR paid today
-    const dailyBills = bills
-        .filter(b => b.date === selectedDate || b.paid_date === selectedDate)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // newest first
+    const { dailyBills, totalCollected, totalBilled } = useMemo(() => {
+        const filtered = bills
+            .filter(b => b.date === selectedDate || b.paid_date === selectedDate)
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // newest first
 
-    const totalCollected = dailyBills.reduce((sum, b) => sum + (parseFloat(b.paid_amount) || 0), 0);
-    const totalBilled = dailyBills.reduce((sum, b) => sum + (parseFloat(b.total_amount) || 0), 0);
+        const collected = filtered.reduce((sum, b) => sum + (parseFloat(b.paid_amount) || 0), 0);
+        const billed = filtered.reduce((sum, b) => sum + (parseFloat(b.total_amount) || 0), 0);
+
+        return { dailyBills: filtered, totalCollected: collected, totalBilled: billed };
+    }, [bills, selectedDate]);
 
     return (
         <div>

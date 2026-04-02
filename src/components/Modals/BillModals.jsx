@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { getLocalDateString } from '../../lib/dateUtils'
 
 export default function BillModal({ isOpen, onClose, onSuccess, customerId, editBill = null }) {
   const [formData, setFormData] = useState({
     bill_no: '',
-    date: new Date().toISOString().split('T')[0],
-    paid_date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
+    paid_date: getLocalDateString(),
     total_amount: '',
     paid_amount: 0
   })
@@ -16,15 +17,15 @@ export default function BillModal({ isOpen, onClose, onSuccess, customerId, edit
       setFormData({
         bill_no: editBill.bill_no,
         date: editBill.date,
-        paid_date: editBill.paid_date || editBill.date || new Date().toISOString().split('T')[0],
+        paid_date: editBill.paid_date || editBill.date || getLocalDateString(),
         total_amount: editBill.total_amount,
         paid_amount: editBill.paid_amount
       })
     } else {
       setFormData({
         bill_no: '',
-        date: new Date().toISOString().split('T')[0],
-        paid_date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
+        paid_date: getLocalDateString(),
         total_amount: '',
         paid_amount: 0
       })
@@ -39,7 +40,14 @@ export default function BillModal({ isOpen, onClose, onSuccess, customerId, edit
     e.preventDefault()
     setLoading(true)
 
-    const paidAmt = parseFloat(formData.paid_amount) || 0
+    const t = parseFloat(formData.total_amount);
+    const p = parseFloat(formData.paid_amount || 0);
+
+    if (isNaN(t) || t <= 0) return alert('Total Amount must be a valid positive number');
+    if (isNaN(p) || p < 0) return alert('Paid amount cannot be negative or invalid');
+    if (t < p) return alert('Paid amount cannot exceed total amount');
+
+    const paidAmt = p;
 
     const billData = {
       customer_id: customerId,

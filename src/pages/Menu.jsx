@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { useCollectionSync } from '../lib/hooks';
 import { importCustomers } from '../lib/api';
+import { getLocalDateString } from '../lib/dateUtils';
 import Header from '../components/Header';
 
 export default function Menu() {
@@ -55,7 +56,7 @@ export default function Menu() {
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "All Customers");
-        XLSX.writeFile(wb, `BillBuddy_Directory_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `BillBuddy_Directory_${getLocalDateString()}.xlsx`);
     };
 
     const handleImport = (e) => {
