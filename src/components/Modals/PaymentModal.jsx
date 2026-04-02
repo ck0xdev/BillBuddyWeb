@@ -27,131 +27,195 @@ export default function PaymentModal({ isOpen, onClose, customer, pending, bill,
     }
   }, [isOpen, bill]);
 
+  // Preset Amount Logic
+  const handleQuickAmount = (amount) => {
+    if (amount === 'full') setPaid(total || pending.toString());
+    else setPaid(amount.toString());
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!total || !billNo) return alert('Bill Number and Total Amount are required');
-
-    const t = parseFloat(total);
-    const p = parseFloat(paid || 0);
-
-    if (isNaN(t) || t <= 0) return alert('Total Amount must be a valid positive number');
-    if (isNaN(p) || p < 0) return alert('Paid amount cannot be negative or invalid');
-    if (t < p) return alert('Paid amount cannot exceed total amount');
-
     setLoading(true);
     try {
       if (bill) {
-        const oldTotal = parseFloat(bill.total_amount) || 0;
-        const oldPaid = parseFloat(bill.paid_amount) || 0;
         await api.updateBill(bill.id, {
           bill_no: billNo,
-          date: date,
-          paid_date: p > 0 ? paidDate : null,
-          total_amount: t,
-          paid_amount: p
-        }, oldTotal, oldPaid, customer.id);
+          date,
+          paid_date: parseFloat(paid) > 0 ? paidDate : null,
+          total_amount: parseFloat(total),
+          paid_amount: parseFloat(paid || 0)
+        }, bill.total_amount, bill.paid_amount, customer.id);
       } else {
         await api.createBill({
           customer_id: customer.id,
           customer_name: customer.name,
           bill_no: billNo,
-          date: date,
-          paid_date: p > 0 ? paidDate : null,
-          total_amount: t,
-          paid_amount: p
+          date,
+          paid_date: parseFloat(paid) > 0 ? paidDate : null,
+          total_amount: parseFloat(total),
+          paid_amount: parseFloat(paid || 0)
         });
       }
       onClose();
-    } catch (err) {
-      alert('Error saving bill: ' + err.message);
-    }
+    } catch (err) { alert(err.message); }
     setLoading(false);
   };
 
-  const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this bill? This cannot be undone.')) {
-      setLoading(true);
-      try {
-        await api.deleteBill(bill.id, bill, customer.id);
-        onClose();
-      } catch (err) {
-        alert('Error deleting bill: ' + err.message);
-      }
-      setLoading(false);
-    }
-  };
-
-  const balance = (parseFloat(total) || 0) - (parseFloat(paid) || 0);
-
-  if (!isOpen || !customer) return null;
+  if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <div className="modal-title">{bill ? 'Edit Bill' : 'New Bill / Payment'}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>For {customer.name}</div>
-          </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+    <div 
+        style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            background: 'rgba(0,0,0,0.4)', 
+            backdropFilter: 'blur(8px)', 
+            zIndex: 1000, 
+            display: 'flex', 
+            alignItems: 'flex-end', 
+            justifyContent: 'center',
+            padding: 0
+        }} 
+        onClick={onClose}
+    >
+      <div 
+        className="animate-slide-up"
+        style={{ 
+            background: 'var(--surface)', 
+            width: '100%', 
+            maxWidth: 500, 
+            borderRadius: '32px 32px 0 0', 
+            padding: '24px 24px 40px',
+            boxShadow: '0 -12px 48px rgba(0,0,0,0.15)',
+            maxHeight: '92vh',
+            overflowY: 'auto'
+        }} 
+        onClick={e => e.stopPropagation()}
+      >
+        {/* iOS Drag Handle */}
+        <div style={{ width: 36, height: 5, background: 'var(--border)', borderRadius: 10, margin: '0 auto 24px' }}></div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h2 className="premium-title" style={{ fontSize: 22, color: 'var(--text)' }}>
+            {bill ? 'Refine Transaction' : 'New Bill Entry'}
+          </h2>
+          <button 
+                onClick={onClose} 
+                className="btn-icon" 
+                style={{ width: 32, height: 32, background: 'rgba(0,0,0,0.03)', border: 'none' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
 
         {!bill && pending > 0 && (
-          <div className="balance-box" style={{ background: '#FEF2F2', borderColor: '#FCA5A5', marginBottom: 20 }}>
-            <div className="balance-label" style={{ color: 'var(--danger)' }}>Previous Due</div>
-            <div className="balance-value due">₹{pending.toLocaleString()}</div>
+          <div className="card" style={{ padding: 16, marginBottom: 24, border: 'none', background: 'rgba(0, 122, 255, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="text-xs font-bold" style={{ color: 'var(--primary)', letterSpacing: '0.04em' }}>MARKET OUTSTANDING</span>
+            <span className="premium-title" style={{ fontSize: 18, color: 'var(--primary)' }}>₹{pending.toLocaleString()}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="flex gap-12">
-            <div className="field" style={{ flex: 1 }}>
-              <label className="field-label">Date</label>
-              <input type="date" className="field-input" value={date} onChange={e => setDate(e.target.value)} required />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label className="field-label">BILL NO</label>
+              <input 
+                type="text" 
+                className="field-input" 
+                style={{ borderRadius: 14, background: 'rgba(0,0,0,0.02)' }}
+                value={billNo} 
+                onChange={e => setBillNo(e.target.value)} 
+                placeholder="Ex: 101"
+                required 
+              />
             </div>
-            <div className="field" style={{ flex: 1 }}>
-              <label className="field-label">Bill Number</label>
-              <input type="number" className="field-input" value={billNo} onChange={e => setBillNo(e.target.value)} placeholder="e.g 1045" required />
-            </div>
-          </div>
-
-          <div className="flex gap-12">
-            <div className="field" style={{ flex: 1 }}>
-              <label className="field-label">Bill Total (₹)</label>
-              <input autoFocus={!bill} type="number" className="field-input" value={total} onChange={e => setTotal(e.target.value)} placeholder="0" required />
-            </div>
-            <div className="field" style={{ flex: 1 }}>
-              <label className="field-label">Amount Paid (₹)</label>
-              <input type="number" className="field-input" value={paid} onChange={e => setPaid(e.target.value)} placeholder="0" />
-            </div>
-          </div>
-
-          {parseFloat(paid || 0) > 0 && (
-            <div className="flex gap-12 mt-12">
-              <div className="field" style={{ flex: 1 }}>
-                <label className="field-label" style={{ color: 'var(--success)' }}>Payment Date</label>
-                <input type="date" className="field-input" value={paidDate} onChange={e => setPaidDate(e.target.value)} required />
-              </div>
-            </div>
-          )}
-
-          <div className="balance-box mt-8">
-            <div className="balance-label">Current Bill Balance</div>
-            <div className={`balance-value ${balance > 0 ? 'due' : 'clear'}`}>
-              ₹{balance.toLocaleString()}
+            <div className="field" style={{ margin: 0 }}>
+              <label className="field-label">DATE</label>
+              <input 
+                type="date" 
+                className="field-input" 
+                style={{ borderRadius: 14, background: 'rgba(0,0,0,0.02)' }}
+                value={date} 
+                onChange={e => setDate(e.target.value)} 
+                required 
+              />
             </div>
           </div>
 
-          <div className="flex gap-12 mt-16">
-            {bill && (
-              <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading}>
-                Delete
-              </button>
+          <div className="field">
+            <label className="field-label">TOTAL BILL AMOUNT (₹)</label>
+            <input 
+                type="number" 
+                className="field-input" 
+                style={{ fontSize: 20, fontWeight: 800, borderRadius: 16, padding: '16px 20px' }} 
+                value={total} 
+                onChange={e => setTotal(e.target.value)} 
+                placeholder="Amount to bill" 
+                required 
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label">AMOUNT COLLECTED (₹)</label>
+            <input 
+                type="number" 
+                className="field-input" 
+                style={{ fontSize: 20, fontWeight: 800, color: 'var(--success)', borderRadius: 16, padding: '16px 20px' }} 
+                value={paid} 
+                onChange={e => setPaid(e.target.value)} 
+                placeholder="Amount received" 
+            />
+            
+            {/* Premium Presets */}
+            <div className="no-scrollbar" style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
+              {[100, 500, 1000, 2000, 'full'].map(amt => (
+                <button 
+                    key={amt} 
+                    type="button" 
+                    onClick={() => handleQuickAmount(amt)} 
+                    style={{ 
+                        flexShrink: 0,
+                        padding: '8px 16px', 
+                        borderRadius: 12, 
+                        background: 'rgba(0,0,0,0.04)', 
+                        border: 'none', 
+                        fontSize: 12, 
+                        fontWeight: 700,
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer'
+                    }}
+                >
+                  {amt === 'full' ? 'FULL BALANCE' : `₹${amt}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ 
+                width: '100%', 
+                padding: '18px', 
+                borderRadius: 18, 
+                fontSize: 16,
+                marginTop: 16,
+                boxShadow: '0 12px 24px rgba(0, 122, 255, 0.25)'
+            }} 
+            disabled={loading}
+          >
+            {loading ? <div className="spinner" style={{ width: 20, height: 20, borderTopColor: 'white' }}></div> : (
+              <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>{bill ? 'UPDATE LEDGER' : 'SAVE TRANSACTION'}</span>
+              </>
             )}
-            <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '16px', fontSize: 16 }} disabled={loading}>
-              {loading ? 'Saving...' : (bill ? 'UPDATE BILL' : 'SAVE BILL')}
-            </button>
-          </div>
+          </button>
         </form>
       </div>
     </div>

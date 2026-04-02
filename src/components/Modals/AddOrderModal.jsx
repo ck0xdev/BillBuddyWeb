@@ -42,7 +42,7 @@ export default function AddOrderModal({ isOpen, onClose, customers, editOrder, a
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedCustomer) return alert('Please select a customer');
+    if (!selectedCustomer) return alert('Please select a member');
     if (items.some(i => !i.name || !i.quantity)) return alert('Please fill all item details');
 
     setLoading(true);
@@ -78,73 +78,174 @@ export default function AddOrderModal({ isOpen, onClose, customers, editOrder, a
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title">{editOrder ? 'Edit Order' : 'New Order'}</div>
-          <button className="modal-close" onClick={onClose}>×</button>
+    <div 
+        style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            background: 'rgba(0,0,0,0.4)', 
+            backdropFilter: 'blur(8px)', 
+            zIndex: 1000, 
+            display: 'flex', 
+            alignItems: 'flex-end', 
+            justifyContent: 'center' 
+        }} 
+        onClick={onClose}
+    >
+      <div 
+        className="animate-slide-up"
+        style={{ 
+            background: 'var(--surface)', 
+            width: '100%', 
+            maxWidth: 500, 
+            borderRadius: '32px 32px 0 0', 
+            padding: '24px 24px 40px',
+            boxShadow: '0 -12px 48px rgba(0,0,0,0.15)',
+            maxHeight: '92vh',
+            overflowY: 'auto'
+        }} 
+        onClick={e => e.stopPropagation()}
+      >
+        {/* iOS Drag Handle */}
+        <div style={{ width: 36, height: 5, background: 'var(--border)', borderRadius: 10, margin: '0 auto 24px' }}></div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h2 className="premium-title" style={{ fontSize: 22, color: 'var(--text)' }}>
+            {editOrder ? 'Update Order' : 'New Market Order'}
+          </h2>
+          <button 
+                onClick={onClose} 
+                className="btn-icon" 
+                style={{ width: 32, height: 32, background: 'rgba(0,0,0,0.03)', border: 'none' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="field">
-            <label className="field-label">Customer</label>
+            <label className="field-label">SELECT MEMBER</label>
             {!selectedCustomer ? (
-              <input
-                type="text"
-                className="field-input"
-                placeholder="Search name or mobile..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                autoFocus
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                    type="text"
+                    className="field-input"
+                    style={{ paddingLeft: 44, borderRadius: 16, background: 'rgba(0,0,0,0.02)' }}
+                    placeholder="Search name or mobile..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    autoFocus
+                />
+                <svg style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </div>
             ) : (
-              <div className="balance-box" style={{ background: 'var(--bg)', marginBottom: 0 }}>
-                <div className="balance-label">
-                  <strong>{selectedCustomer.name}</strong> 
-                  <small style={{ display: 'block', color: 'var(--text-muted)' }}>{selectedCustomer.route_day} Route</small>
+              <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(0, 122, 255, 0.04)', border: '1px solid rgba(0, 122, 255, 0.1)' }}>
+                <div>
+                  <h4 className="premium-title" style={{ fontSize: 16, color: 'var(--text)' }}>{selectedCustomer.name}</h4>
+                  <span className="text-xs font-bold" style={{ color: 'var(--primary)', textTransform: 'uppercase' }}>{selectedCustomer.route_day} Route</span>
                 </div>
-                {!editOrder && <button type="button" className="btn btn-sm btn-outline" onClick={() => setSelectedCustomer(null)}>Change</button>}
+                {!editOrder && (
+                    <button type="button" className="btn btn-secondary" style={{ height: 32, padding: '0 12px', fontSize: 12, borderRadius: 8 }} onClick={() => setSelectedCustomer(null)}>
+                        Change
+                    </button>
+                )}
               </div>
             )}
             
             {searchTerm && !selectedCustomer && (
-              <div className="customer-list" style={{ padding: 0, marginTop: 4, border: '1px solid var(--border)', maxHeight: '150px', overflowY: 'auto' }}>
+              <div className="card" style={{ padding: 0, marginTop: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
                 {filteredCustomers.map(c => (
-                  <div key={c.id} className="customer-card" style={{ padding: '10px', borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border)' }}
-                    onClick={() => { setSelectedCustomer(c); setSearchTerm(''); }}>
-                    <div>{c.name} <small>({c.route_day})</small></div>
+                  <div 
+                    key={c.id} 
+                    style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)', cursor: 'pointer' }}
+                    onClick={() => { setSelectedCustomer(c); setSearchTerm(''); }}
+                  >
+                    <div className="premium-title" style={{ fontSize: 14 }}>{c.name}</div>
+                    <div className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{c.route_day} Route • {c.mobile || 'No Mobile'}</div>
                   </div>
                 ))}
+                {filteredCustomers.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>No results found</div>}
               </div>
             )}
           </div>
 
-          <div className="divider" />
+          <div style={{ marginTop: 24, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 className="premium-title" style={{ fontSize: 16, color: 'var(--text)' }}>Selected Items</h3>
+            <button type="button" className="btn btn-secondary" style={{ height: 32, padding: '0 12px', fontSize: 12, borderRadius: 8 }} onClick={handleAddItem}>
+                + Add Item
+            </button>
+          </div>
 
-          <div className="section-title">Products</div>
-          {items.map((item, index) => (
-            <div key={index} className="flex gap-8 mt-8" style={{ alignItems: 'flex-end' }}>
-              <div style={{ flex: 2 }}>
-                <label className="field-label" style={{ fontSize: 10 }}>Product</label>
-                <select className="field-input" value={item.name} onChange={(e) => handleItemChange(index, 'name', e.target.value)} required>
-                  <option value="">Select</option>
-                  {products?.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="field-label" style={{ fontSize: 10 }}>Qty</label>
-                <input type="number" className="field-input" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} required />
-              </div>
-              {items.length > 1 && <button type="button" className="btn btn-danger btn-icon" onClick={() => handleRemoveItem(index)}>×</button>}
-            </div>
-          ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {items.map((item, index) => (
+                <div key={index} className="card" style={{ padding: 12, background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-light)' }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                            <label className="field-label" style={{ fontSize: 9 }}>PRODUCT</label>
+                            <select 
+                                className="field-input" 
+                                style={{ height: 44, padding: '0 12px', fontSize: 14, borderRadius: 10, background: 'var(--surface)' }}
+                                value={item.name} 
+                                onChange={(e) => handleItemChange(index, 'name', e.target.value)} 
+                                required
+                            >
+                                <option value="">Select Item</option>
+                                {products?.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                            </select>
+                        </div>
+                        <div style={{ width: 80 }}>
+                            <label className="field-label" style={{ fontSize: 9 }}>QTY</label>
+                            <input 
+                                type="number" 
+                                className="field-input" 
+                                style={{ height: 44, textAlign: 'center', fontSize: 14, borderRadius: 10, background: 'var(--surface)' }}
+                                value={item.quantity} 
+                                onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} 
+                                required 
+                            />
+                        </div>
+                        {items.length > 1 && (
+                            <button 
+                                type="button" 
+                                className="btn-icon" 
+                                style={{ marginTop: 20, width: 36, height: 36, background: 'rgba(255, 59, 48, 0.05)', color: 'var(--danger)', border: 'none' }}
+                                onClick={() => handleRemoveItem(index)}
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            ))}
+          </div>
 
-          <button type="button" className="btn btn-outline w-full mt-12" onClick={handleAddItem}>+ Add Product</button>
-
-          <div className="flex gap-12 mt-24">
-            {editOrder && <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading}>Delete</button>}
-            <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '16px' }} disabled={loading}>
-              {loading ? 'Saving...' : (editOrder ? 'UPDATE ORDER' : 'SAVE ORDER')}
+          <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+            {editOrder && (
+              <button 
+                  type="button" 
+                  className="btn" 
+                  onClick={handleDelete} 
+                  disabled={loading}
+                  style={{ background: 'rgba(255, 59, 48, 0.08)', color: 'var(--danger)', borderRadius: 16, padding: '0 16px' }}
+              >
+                Delete
+              </button>
+            )}
+            <button 
+                type="submit" 
+                className="btn btn-primary" 
+                style={{ flex: 1, padding: '16px', borderRadius: 18, fontSize: 16, boxShadow: '0 8px 16px rgba(0, 122, 255, 0.2)' }} 
+                disabled={loading}
+            >
+              {loading ? <div className="spinner" style={{ width: 20, height: 20, borderTopColor: 'white' }}></div> : (editOrder ? 'Update Order' : 'Place Order')}
             </button>
           </div>
         </form>

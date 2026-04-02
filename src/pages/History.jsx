@@ -1,77 +1,102 @@
 import React, { useState, useMemo } from 'react';
 import { useCollectionSync } from '../lib/hooks';
-import { getLocalDateString } from '../lib/dateUtils';
 import Header from '../components/Header';
 
 export default function History() {
-    const [selectedDate, setSelectedDate] = useState(getLocalDateString());
-    const { data: bills, loading } = useCollectionSync('bills', null);
+  const { data: bills, loading } = useCollectionSync('bills', null);
+  
+  // Logic for Grouping Bills by Date
+  const groupedBills = useMemo(() => {
+    const groups = {};
+    bills.filter(b => !b.is_deleted).forEach(bill => {
+      const dateKey = bill.paid_date || bill.date;
+      if (!groups[dateKey]) groups[dateKey] = { total: 0, items: [] };
+      groups[dateKey].items.push(bill);
+      groups[dateKey].total += parseFloat(bill.paid_amount || 0);
+    });
+    return Object.entries(groups).sort((a, b) => new Date(b[0]) - new Date(a[0]));
+  }, [bills]);
 
-    const { dailyBills, totalCollected, totalBilled } = useMemo(() => {
-        const filtered = bills
-            .filter(b => b.date === selectedDate || b.paid_date === selectedDate)
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // newest first
-
-        const collected = filtered.reduce((sum, b) => sum + (parseFloat(b.paid_amount) || 0), 0);
-        const billed = filtered.reduce((sum, b) => sum + (parseFloat(b.total_amount) || 0), 0);
-
-        return { dailyBills: filtered, totalCollected: collected, totalBilled: billed };
-    }, [bills, selectedDate]);
-
-    return (
-        <div>
-            <Header />
-
-            <div style={{ background: 'var(--primary)', padding: '20px 16px 30px', color: 'white' }}>
-                <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.8, marginBottom: 8, fontWeight: 600 }}>Filter Timeline</div>
-                <input
-                    type="date"
-                    style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', fontSize: 16, fontFamily: 'inherit', outline: 'none', background: 'rgba(255,255,255,0.1)', color: 'white' }}
-                    value={selectedDate}
-                    onChange={e => setSelectedDate(e.target.value)}
-                />
-            </div>
-
-            <div className="stats-bar" style={{ marginTop: -20, padding: '0 16px', marginBottom: 20 }}>
-                <div className="stat-card" style={{ flex: 1, textAlign: 'center' }}>
-                    <div className="stat-label">Transactions</div>
-                    <div className="stat-value">{dailyBills.length}</div>
-                </div>
-                <div className="stat-card" style={{ flex: 1, textAlign: 'center' }}>
-                    <div className="stat-label">Collected</div>
-                    <div className="stat-value success">₹{totalCollected.toLocaleString()}</div>
-                </div>
-            </div>
-
-            <div className="customer-list">
-                <div className="section-title">Timeline feed for {new Date(selectedDate).toLocaleDateString()}</div>
-
-                {loading ? (
-                    <div className="loading-page"><div className="spinner" style={{ borderColor: 'var(--primary)' }}></div></div>
-                ) : dailyBills.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">⏳</div>
-                        <div className="empty-title">No transactions</div>
-                        <div className="empty-desc">No bills or payments were recorded on this date.</div>
-                    </div>
-                ) : (
-                    dailyBills.map(bill => (
-                        <div key={bill.id} className="bill-card" style={{ padding: 16 }}>
-                            <div style={{ width: 40, height: 40, background: '#ECFDF5', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, marginRight: 12 }}>
-                                💰
-                            </div>
-                            <div className="bill-info">
-                                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{bill.customer_name || 'Unknown Customer'}</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Bill #{bill.bill_no}</div>
-                            </div>
-                            <div className="bill-amounts">
-                                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--success)' }}>+ ₹{parseFloat(bill.paid_amount || 0).toLocaleString()}</div>
-                                <div style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 2 }}>Total ₹{parseFloat(bill.total_amount).toLocaleString()}</div>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
+  return (
+    <div style={{ paddingBottom: 100 }}>
+      <Header />
+      <div className="container animate-slide-up">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, padding: '0 4px' }}>
+          <div>
+            <h2 className="premium-title" style={{ fontSize: 26, color: 'var(--text)' }}>Collection Timeline</h2>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>A historical record of all market settlements</p>
+          </div>
+          <div className="badge badge-info" style={{ padding: '8px 16px', fontSize: 13, fontWeight: 800 }}>
+            HISTORY ARCHIVE
+          </div>
         </div>
-    );
+
+        {loading ? (
+          <div className="loading-page"><div className="spinner"></div></div>
+        ) : groupedBills.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '100px 20px', background: 'var(--surface)', borderRadius: 24, border: '2px dashed var(--border)' }}>
+             <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: 18 }}>No collection history found.</p>
+          </div>
+        ) : (
+          groupedBills.map(([date, data]) => (
+            <div key={date} style={{ marginBottom: 48 }}>
+              <div style={{ 
+                position: 'sticky', 
+                top: 156, 
+                background: 'rgba(255, 255, 255, 0.85)', 
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                padding: '16px 24px', 
+                margin: '0 -24px',
+                zIndex: 10, 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                borderBottom: '1px solid var(--border-light)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                borderRadius: '0 0 16px 16px'
+              }}>
+                <div>
+                  <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)', letterSpacing: '0.08em', display: 'block', marginBottom: 2 }}>COLLECTION DATE</span>
+                  <span className="premium-title" style={{ fontSize: 18, color: 'var(--text)' }}>
+                    {new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: 2 }}>TOTAL COLLECTED</span>
+                  <span className="premium-title" style={{ fontSize: 20, color: 'var(--success)' }}>
+                    ₹{data.total.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }}>
+                {data.items.map(bill => (
+                  <div key={bill.id} className="card" style={{ padding: 20, border: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <h4 className="premium-title" style={{ fontSize: 17, color: 'var(--text)', marginBottom: 2 }}>{bill.customer_name}</h4>
+                        <div className="text-xs font-bold" style={{ color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>BILL INVOICE: #{bill.bill_no}</div>
+                      </div>
+                      <div className="badge badge-success" style={{ fontSize: 9, padding: '4px 10px' }}>SETTLED</div>
+                    </div>
+                    
+                    <div style={{ padding: '12px 16px', background: 'rgba(52, 199, 89, 0.05)', borderRadius: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="text-xs font-bold" style={{ color: 'var(--success)' }}>PAYMENT RECEIVED</span>
+                      <span className="premium-title" style={{ fontSize: 16, color: 'var(--success)' }}>+ ₹{parseFloat(bill.paid_amount).toLocaleString()}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Total Bill Value</span>
+                      <span style={{ color: 'var(--text)', fontWeight: 700 }}>₹{parseFloat(bill.total_amount).toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 }

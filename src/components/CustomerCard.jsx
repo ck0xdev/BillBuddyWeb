@@ -1,30 +1,50 @@
 import React from 'react';
 
-export default function CustomerCard({ customer, pending, onEdit, onDetails }) {
+export default function CustomerCard({ customer, pending, onDetails }) {
   return (
-    <div className="customer-card" onClick={onEdit}>
-      <div className="customer-avatar">
-        {customer.name.charAt(0).toUpperCase()}
-      </div>
-
-      <div className="customer-info">
-        <div className="customer-name">{customer.name}</div>
-        <div className="customer-meta">
-          <span className="customer-badge badge-neutral">#{customer.sr_no}</span>
-          <span>{customer.mobile || 'No Mobile'}</span>
+    <div className="card container animate-slide-up" style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div onClick={onDetails} style={{ cursor: 'pointer', flex: 1 }}>
+          <h3 className="premium-title" style={{ fontSize: 17, color: 'var(--text)', marginBottom: 2 }}>{customer.name}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{customer.mobile || 'No Mobile'}</span>
+            {customer.area && (
+              <>
+                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--text-tertiary)' }}></span>
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{customer.area}</span>
+              </>
+            )}
+          </div>
+        </div>
+        
+        <div style={{ textAlign: 'right' }}>
+          <div className="text-xs font-bold" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 2, letterSpacing: '0.02em' }}>Balance</div>
+          <div className="font-bold" style={{ 
+            fontSize: 20, 
+            color: pending > 0 ? 'var(--danger)' : 'var(--success)',
+            fontFamily: 'Outfit'
+          }}>
+            ₹{pending.toLocaleString()}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-12">
-        <div className={`customer-pending ${pending <= 0 ? 'paid' : ''}`}>
-          ₹{pending.toLocaleString()}
-        </div>
-
-        <button
-          className="btn btn-sm btn-primary"
-          onClick={(e) => { e.stopPropagation(); onDetails(); }}
+      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 12, display: 'flex', gap: 8 }}>
+        <button 
+          onClick={onDetails}
+          className="btn btn-primary" 
+          style={{ flex: 1, height: 40, padding: 0 }}
         >
-          Details
+          View Ledger
+        </button>
+        <button 
+          className="btn-icon" 
+          onClick={() => { /* Logic is in parent */ }}
+          style={{ width: 40, height: 40, background: 'rgba(0,0,0,0.03)', border: 'none' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
         </button>
       </div>
     </div>
